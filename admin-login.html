@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard | MooFresh Dairy</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <header class="site-header">
+        <div class="container navbar">
+            <div class="brand">MooFresh Dairy</div>
+            <nav class="nav-links" aria-label="Primary navigation">
+                <a href="index.html">Home</a>
+                <a href="about.html">About</a>
+                <a href="products.html">Products</a>
+                <a href="services.html">Services</a>
+                <a href="contact.html">Contact</a>
+                <a href="customer-login.html">Customer Portal</a>
+                <a class="active" href="admin-login.html">Admin</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container section">
+        <div class="auth-box">
+            <h2>Private admin access</h2>
+            <p>Use this dashboard to monitor business performance, pending payments, order volume, and stock availability.</p>
+            <form id="adminAuthForm" class="auth-form">
+                <div class="form-group">
+                    <label for="adminEmail">Admin email</label>
+                    <input id="adminEmail" name="email" type="email" required />
+                </div>
+                <div class="form-group">
+                    <label for="adminPassword">Password</label>
+                    <input id="adminPassword" name="password" type="password" required />
+                </div>
+                <button class="btn btn-primary" type="submit">Sign in as admin</button>
+            </form>
+            <p id="adminAuthMessage" class="helper"></p>
+            <div class="dashboard-grid admin-dashboard-hidden" id="adminDashboard">
+                <section class="orders-list">
+                    <h3>Business overview</h3>
+                    <div class="stat-grid">
+                        <div class="summary-card"><strong id="orderCount">0</strong><span>Orders received</span></div>
+                        <div class="summary-card"><strong id="orderStatusSummary">Pending</strong><span>Latest status</span></div>
+                        <div class="summary-card"><strong id="stockSummary">Fresh: 900L</strong><span>Inventory note</span></div>
+                    </div>
+                    <h3 class="section-title-spaced">Recent orders</h3>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Customer</th>
+                                <th>Product</th>
+                                <th>Qty</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody">
+                            <tr>
+                                <td colspan="4" class="helper">Loading orders…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                <section class="payment-list">
+                    <h3>Payments & stock</h3>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Payment</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Invoice 104</td>
+                                <td>Kes 48,000</td>
+                                <td><span class="tag paid">Paid</span></td>
+                            </tr>
+                            <tr>
+                                <td>Invoice 105</td>
+                                <td>Kes 36,500</td>
+                                <td><span class="tag pending">Pending</span></td>
+                            </tr>
+                            <tr>
+                                <td>Stock</td>
+                                <td>Fresh: 900L</td>
+                                <td><span class="tag low">Low</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+            </div>
+
+            <section class="auth-box section-title-spaced">
+                <h3>Post a new product</h3>
+                <form id="productForm" class="auth-form">
+                    <div class="form-group">
+                        <label for="productName">Product name</label>
+                        <input id="productName" name="name" type="text" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="productDescription">Description</label>
+                        <textarea id="productDescription" name="description" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="productCategory">Category</label>
+                        <input id="productCategory" name="category" type="text" placeholder="Fresh / Long Life" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="productPrice">Price</label>
+                        <input id="productPrice" name="price" type="text" placeholder="Kes 120/L" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="productStock">Stock level</label>
+                        <input id="productStock" name="stock" type="text" placeholder="900L" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="productPublished">Publish now</label>
+                        <select id="productPublished" name="isPublished">
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" type="submit">Add product</button>
+                </form>
+                <p id="productMessage" class="helper"></p>
+                <div id="productList" class="card-grid"></div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">© 2026 MooFresh Dairy. Internal dashboard.</div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

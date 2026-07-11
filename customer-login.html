@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Customer Portal | MooFresh Dairy</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <header class="site-header">
+        <div class="container navbar">
+            <div class="brand">MooFresh Dairy</div>
+            <nav class="nav-links" aria-label="Primary navigation">
+                <a href="index.html">Home</a>
+                <a href="about.html">About</a>
+                <a href="products.html">Products</a>
+                <a href="services.html">Services</a>
+                <a href="contact.html">Contact</a>
+                <a class="active" href="customer-login.html">Customer Portal</a>
+                <a href="admin-login.html">Admin</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container auth-shell">
+        <section class="auth-box">
+            <h2>Customer access</h2>
+            <p>Sign in to request orders, view private quotes, and keep your history with MooFresh Dairy.</p>
+            <form id="authForm" class="auth-form">
+                <div class="form-group">
+                    <label for="authEmail">Email</label>
+                    <input id="authEmail" name="email" type="email" required />
+                </div>
+                <div class="form-group">
+                    <label for="authPassword">Password</label>
+                    <input id="authPassword" name="password" type="password" required />
+                </div>
+                <div class="form-group">
+                    <label for="authMode">Access mode</label>
+                    <select id="authMode" name="mode">
+                        <option value="login">Sign in</option>
+                        <option value="register">Create account</option>
+                    </select>
+                </div>
+                <div class="form-group" id="nameGroup">
+                    <label for="authName">Full name</label>
+                    <input id="authName" name="name" type="text" />
+                </div>
+                <div class="form-group">
+                    <label for="authPhone">Phone number</label>
+                    <input id="authPhone" name="phone" type="tel" />
+                </div>
+                <button class="btn btn-primary" type="submit">Continue</button>
+            </form>
+            <p id="authMessage" class="helper"></p>
+        </section>
+
+        <section class="auth-box">
+            <h2>Place an order</h2>
+            <p>After you sign in, you can submit a private request for fresh milk, long-life milk, or both.</p>
+            <form id="customerForm">
+                <div class="form-group">
+                    <label for="customerName">Full name</label>
+                    <input id="customerName" name="customerName" type="text" required />
+                </div>
+                <div class="form-group">
+                    <label for="customerEmail">Email</label>
+                    <input id="customerEmail" name="customerEmail" type="email" required />
+                </div>
+                <div class="form-group">
+                    <label for="customerPhone">Phone number</label>
+                    <input id="customerPhone" name="customerPhone" type="tel" required />
+                </div>
+                <div class="form-group">
+                    <label for="customerProduct">Preferred product</label>
+                    <select id="customerProduct" name="customerProduct">
+                        <option>Fresh milk</option>
+                        <option>Long life milk</option>
+                        <option>Both</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="customerQuantity">Estimated quantity</label>
+                    <input id="customerQuantity" name="customerQuantity" type="text" placeholder="e.g. 200 liters" required />
+                </div>
+                <div class="form-group">
+                    <label for="customerMessage">Order notes</label>
+                    <textarea id="customerMessage" name="customerMessage" placeholder="Tell us about your delivery preference and volume."></textarea>
+                </div>
+                <button class="btn btn-primary" type="submit">Submit order request</button>
+            </form>
+            <p id="orderMessage" class="helper"></p>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">© 2026 MooFresh Dairy. Private customer portal.</div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
