@@ -25,111 +25,185 @@
     </header>
 
     <main class="container section">
-        <div class="auth-box">
-            <h2>Private admin access</h2>
-            <p>Use this dashboard to monitor business performance, pending payments, order volume, and stock availability.</p>
-            <form id="adminAuthForm" class="auth-form">
-                <div class="form-group">
-                    <label for="adminEmail">Admin email</label>
-                    <input id="adminEmail" name="email" type="email" required />
-                </div>
-                <div class="form-group">
-                    <label for="adminPassword">Password</label>
-                    <input id="adminPassword" name="password" type="password" required />
-                </div>
-                <button class="btn btn-primary" type="submit">Sign in as admin</button>
-            </form>
-            <p id="adminAuthMessage" class="helper"></p>
-            <div class="dashboard-grid admin-dashboard-hidden" id="adminDashboard">
-                <section class="orders-list">
-                    <h3>Business overview</h3>
-                    <div class="stat-grid">
-                        <div class="summary-card"><strong id="orderCount">0</strong><span>Orders received</span></div>
-                        <div class="summary-card"><strong id="orderStatusSummary">Pending</strong><span>Latest status</span></div>
-                        <div class="summary-card"><strong id="stockSummary">Fresh: 900L</strong><span>Inventory note</span></div>
+        <!-- Auth View: Shown when admin is not logged in -->
+        <div id="authView" class="auth-shell" style="max-width: 600px; margin: 0 auto;">
+            <div class="auth-box" style="width: 100%;">
+                <h2>Private admin access</h2>
+                <p>Use this dashboard to monitor business performance, manage customer orders, update inventory, and handle inquiries.</p>
+                <form id="adminAuthForm" class="auth-form">
+                    <div class="form-group">
+                        <label for="adminEmail">Admin email</label>
+                        <input id="adminEmail" name="email" type="email" required />
                     </div>
-                    <h3 class="section-title-spaced">Recent orders</h3>
+                    <div class="form-group">
+                        <label for="adminPassword">Password</label>
+                        <input id="adminPassword" name="password" type="password" required />
+                    </div>
+                    <button class="btn btn-primary" type="submit" style="width: 100%;">Sign in as admin</button>
+                </form>
+                <p id="adminAuthMessage" class="helper"></p>
+            </div>
+        </div>
+
+        <!-- Dashboard View: Shown when admin is authenticated -->
+        <div id="dashboardView" style="display: none;">
+            <div class="dashboard-welcome">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <h2>MooFresh Admin Console</h2>
+                        <p>Welcome back, <span id="adminNameDisplay">Admin</span>. System online.</p>
+                    </div>
+                    <button class="btn btn-secondary" id="adminLogoutBtn">Sign Out</button>
+                </div>
+            </div>
+
+            <nav class="tabs-nav">
+                <button class="tab-link active" data-tab="overviewTab">Overview & Charts</button>
+                <button class="tab-link" data-tab="ordersTab">Manage Orders</button>
+                <button class="tab-link" data-tab="inventoryTab">Inventory Manager</button>
+                <button class="tab-link" data-tab="inquiriesTab">Inquiries Inbox</button>
+            </nav>
+
+            <!-- Tab 1: Overview & Charts -->
+            <section id="overviewTab" class="tab-content active">
+                <div class="stat-grid" style="margin-bottom: 2rem;">
+                    <div class="summary-card">
+                        <strong id="orderCount">0</strong>
+                        <span>Total Orders Received</span>
+                    </div>
+                    <div class="summary-card">
+                        <strong id="revenueSummary">Kes 0</strong>
+                        <span>Estimated Order Revenue</span>
+                    </div>
+                    <div class="summary-card">
+                        <strong id="pendingSummary">0</strong>
+                        <span>Pending Orders</span>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <h3>Order Performance Trends</h3>
+                    <p class="helper">Visual status breakdown of orders handled in real-time.</p>
+                    <div id="performanceChart" style="margin-top: 1.5rem;">
+                        <svg class="chart-svg" viewBox="0 0 600 300" id="svgChart">
+                            <line x1="50" y1="50" x2="550" y2="50" stroke="#E2E8F0" stroke-dasharray="4" />
+                            <line x1="50" y1="125" x2="550" y2="125" stroke="#E2E8F0" stroke-dasharray="4" />
+                            <line x1="50" y1="200" x2="550" y2="200" stroke="#E2E8F0" stroke-dasharray="4" />
+                            <line x1="50" y1="250" x2="550" y2="250" stroke="#94A3B8" stroke-width="2" />
+                            
+                            <rect class="chart-bar" x="80" y="250" width="50" height="0" rx="4" />
+                            <rect class="chart-bar" x="180" y="250" width="50" height="0" rx="4" />
+                            <rect class="chart-bar" x="280" y="250" width="50" height="0" rx="4" />
+                            <rect class="chart-bar" x="380" y="250" width="50" height="0" rx="4" />
+                            <rect class="chart-bar" x="480" y="250" width="50" height="0" rx="4" />
+
+                            <text x="105" y="275" text-anchor="middle" font-size="12" fill="#64748B">Pending</text>
+                            <text x="205" y="275" text-anchor="middle" font-size="12" fill="#64748B">Paid</text>
+                            <text x="305" y="275" text-anchor="middle" font-size="12" fill="#64748B">Processing</text>
+                            <text x="405" y="275" text-anchor="middle" font-size="12" fill="#64748B">Completed</text>
+                            <text x="505" y="275" text-anchor="middle" font-size="12" fill="#64748B">Cancelled</text>
+                        </svg>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tab 2: Manage Orders -->
+            <section id="ordersTab" class="tab-content orders-list">
+                <h3>Customer Order List</h3>
+                <p class="helper" style="margin-bottom: 1.5rem;">Update customer order status as payments are completed and delivery logistics are organized.</p>
+                <div class="table-container">
                     <table class="table">
                         <thead>
                             <tr>
+                                <th>ID</th>
                                 <th>Customer</th>
+                                <th>Contact</th>
                                 <th>Product</th>
                                 <th>Qty</th>
                                 <th>Status</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody id="ordersTableBody">
                             <tr>
-                                <td colspan="4" class="helper">Loading orders…</td>
+                                <td colspan="7" class="helper">Loading orders…</td>
                             </tr>
                         </tbody>
                     </table>
-                </section>
-                <section class="payment-list">
-                    <h3>Payments & stock</h3>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Payment</th>
-                                <th>Amount</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>Invoice 104</td>
-                                <td>Kes 48,000</td>
-                                <td><span class="tag paid">Paid</span></td>
-                            </tr>
-                            <tr>
-                                <td>Invoice 105</td>
-                                <td>Kes 36,500</td>
-                                <td><span class="tag pending">Pending</span></td>
-                            </tr>
-                            <tr>
-                                <td>Stock</td>
-                                <td>Fresh: 900L</td>
-                                <td><span class="tag low">Low</span></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </section>
-            </div>
+                </div>
+            </section>
 
-            <section class="auth-box section-title-spaced">
-                <h3>Post a new product</h3>
-                <form id="productForm" class="auth-form">
-                    <div class="form-group">
-                        <label for="productName">Product name</label>
-                        <input id="productName" name="name" type="text" required />
+            <!-- Tab 3: Inventory Manager -->
+            <section id="inventoryTab" class="tab-content">
+                <div class="dashboard-grid">
+                    <div class="dashboard-block">
+                        <h3>Stock & Product List</h3>
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Price</th>
+                                        <th>Stock</th>
+                                        <th>Published</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inventoryTableBody">
+                                    <tr>
+                                        <td colspan="5" class="helper">Loading inventory…</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="productDescription">Description</label>
-                        <textarea id="productDescription" name="description" required></textarea>
+
+                    <div class="dashboard-block">
+                        <h3 id="productFormTitle">Post a New Product</h3>
+                        <form id="productForm" class="auth-form">
+                            <input type="hidden" id="editProductId" name="id" />
+                            <div class="form-group">
+                                <label for="productName">Product name</label>
+                                <input id="productName" name="name" type="text" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="productDescription">Description</label>
+                                <textarea id="productDescription" name="description" required></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="productCategory">Category</label>
+                                <input id="productCategory" name="category" type="text" placeholder="e.g. Fresh / Long Life" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="productPrice">Price</label>
+                                <input id="productPrice" name="price" type="text" placeholder="Kes 120/L" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="productStock">Stock level</label>
+                                <input id="productStock" name="stock" type="text" placeholder="900L" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="productPublished">Publish details</label>
+                                <select id="productPublished" name="isPublished">
+                                    <option value="true">Publish Immediately</option>
+                                    <option value="false">Save as Draft</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-primary" type="submit" id="productSubmitBtn">Add product</button>
+                            <button class="btn btn-secondary" type="button" id="cancelEditBtn" style="display: none; margin-top: 0.5rem;">Cancel Edit</button>
+                        </form>
+                        <p id="productMessage" class="helper"></p>
                     </div>
-                    <div class="form-group">
-                        <label for="productCategory">Category</label>
-                        <input id="productCategory" name="category" type="text" placeholder="Fresh / Long Life" required />
-                    </div>
-                    <div class="form-group">
-                        <label for="productPrice">Price</label>
-                        <input id="productPrice" name="price" type="text" placeholder="Kes 120/L" required />
-                    </div>
-                    <div class="form-group">
-                        <label for="productStock">Stock level</label>
-                        <input id="productStock" name="stock" type="text" placeholder="900L" required />
-                    </div>
-                    <div class="form-group">
-                        <label for="productPublished">Publish now</label>
-                        <select id="productPublished" name="isPublished">
-                            <option value="true">Yes</option>
-                            <option value="false">No</option>
-                        </select>
-                    </div>
-                    <button class="btn btn-primary" type="submit">Add product</button>
-                </form>
-                <p id="productMessage" class="helper"></p>
-                <div id="productList" class="card-grid"></div>
+                </div>
+            </section>
+
+            <!-- Tab 4: Inquiries Inbox -->
+            <section id="inquiriesTab" class="tab-content dashboard-block">
+                <h3>Contact & Care Messages</h3>
+                <p class="helper" style="margin-bottom: 1.5rem;">Inquiries and feedback messages sent by site visitors and customers via the Contact Us page.</p>
+                <div class="inquiries-list" id="inquiriesListContainer">
+                    <p class="helper">No messages received yet.</p>
+                </div>
             </section>
         </div>
     </main>

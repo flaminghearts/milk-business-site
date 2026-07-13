@@ -24,75 +24,193 @@
         </div>
     </header>
 
-    <main class="container auth-shell">
-        <section class="auth-box">
-            <h2>Customer access</h2>
-            <p>Sign in to request orders, view private quotes, and keep your history with MooFresh Dairy.</p>
-            <form id="authForm" class="auth-form">
-                <div class="form-group">
-                    <label for="authEmail">Email</label>
-                    <input id="authEmail" name="email" type="email" required />
-                </div>
-                <div class="form-group">
-                    <label for="authPassword">Password</label>
-                    <input id="authPassword" name="password" type="password" required />
-                </div>
-                <div class="form-group">
-                    <label for="authMode">Access mode</label>
-                    <select id="authMode" name="mode">
-                        <option value="login">Sign in</option>
-                        <option value="register">Create account</option>
-                    </select>
-                </div>
-                <div class="form-group" id="nameGroup">
-                    <label for="authName">Full name</label>
-                    <input id="authName" name="name" type="text" />
-                </div>
-                <div class="form-group">
-                    <label for="authPhone">Phone number</label>
-                    <input id="authPhone" name="phone" type="tel" />
-                </div>
-                <button class="btn btn-primary" type="submit">Continue</button>
-            </form>
-            <p id="authMessage" class="helper"></p>
-        </section>
+    <main class="container section">
+        <!-- Auth View: Shown when user is not authenticated -->
+        <div id="authView" class="auth-shell">
+            <section class="auth-box">
+                <h2>Customer access</h2>
+                <p>Sign in to request orders, view private quotes, and keep your history with MooFresh Dairy.</p>
+                <form id="authForm" class="auth-form">
+                    <div class="form-group">
+                        <label for="authEmail">Email</label>
+                        <input id="authEmail" name="email" type="email" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="authPassword">Password</label>
+                        <input id="authPassword" name="password" type="password" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="authMode">Access mode</label>
+                        <select id="authMode" name="mode">
+                            <option value="login">Sign in</option>
+                            <option value="register">Create account</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="nameGroup" style="display: none;">
+                        <label for="authName">Full name</label>
+                        <input id="authName" name="name" type="text" />
+                    </div>
+                    <div class="form-group">
+                        <label for="authPhone">Phone number</label>
+                        <input id="authPhone" name="phone" type="tel" />
+                    </div>
+                    <button class="btn btn-primary" type="submit">Continue</button>
+                </form>
+                <p id="authMessage" class="helper"></p>
+            </section>
 
-        <section class="auth-box">
-            <h2>Place an order</h2>
-            <p>After you sign in, you can submit a private request for fresh milk, long-life milk, or both.</p>
-            <form id="customerForm">
-                <div class="form-group">
-                    <label for="customerName">Full name</label>
-                    <input id="customerName" name="customerName" type="text" required />
+            <section class="auth-box">
+                <h2>Place an order request</h2>
+                <p>Register or sign in to submit order requests, track status, and view your milk delivery details.</p>
+                <div class="notice">
+                    Need bulk fresh or long-life milk? Sign in to unlock custom quotations and direct delivery scheduling.
                 </div>
-                <div class="form-group">
-                    <label for="customerEmail">Email</label>
-                    <input id="customerEmail" name="customerEmail" type="email" required />
+            </section>
+        </div>
+
+        <!-- Dashboard View: Shown when user is authenticated -->
+        <div id="dashboardView" style="display: none;">
+            <div class="dashboard-welcome">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <h2>Welcome back, <span id="welcomeUserName">Customer</span>!</h2>
+                        <p>Track your milk orders, request bulk quotes, and update your delivery profile.</p>
+                    </div>
+                    <button class="btn btn-secondary" id="logoutBtn">Sign Out</button>
                 </div>
-                <div class="form-group">
-                    <label for="customerPhone">Phone number</label>
-                    <input id="customerPhone" name="customerPhone" type="tel" required />
+            </div>
+
+            <nav class="tabs-nav">
+                <button class="tab-link active" data-tab="ordersTab">My Orders</button>
+                <button class="tab-link" data-tab="newOrderTab">Order Milk</button>
+                <button class="tab-link" data-tab="profileTab">My Profile</button>
+            </nav>
+
+            <!-- Tab 1: Orders -->
+            <section id="ordersTab" class="tab-content active orders-list">
+                <h3>Your Order History</h3>
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Product</th>
+                                <th>Quantity</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="myOrdersTableBody">
+                            <tr>
+                                <td colspan="5" class="helper">Loading your orders…</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
-                <div class="form-group">
-                    <label for="customerProduct">Preferred product</label>
-                    <select id="customerProduct" name="customerProduct">
-                        <option>Fresh milk</option>
-                        <option>Long life milk</option>
-                        <option>Both</option>
-                    </select>
+            </section>
+
+            <!-- Tab 2: New Order -->
+            <section id="newOrderTab" class="tab-content dashboard-block">
+                <h3>Request Bulk Milk Supply</h3>
+                <p>Fill out the form below to request a new delivery. Our team will review your quantities and update your quotation.</p>
+                <form id="customerForm" style="max-width: 600px;">
+                    <!-- Auto-filled user details hidden or read-only -->
+                    <input id="customerName" name="customerName" type="hidden" />
+                    <input id="customerEmail" name="customerEmail" type="hidden" />
+                    <input id="customerPhone" name="customerPhone" type="hidden" />
+                    
+                    <div class="form-group">
+                        <label for="customerProduct">Preferred product</label>
+                        <select id="customerProduct" name="customerProduct">
+                            <option>Fresh milk</option>
+                            <option>Long life milk</option>
+                            <option>Both</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="customerQuantity">Estimated quantity</label>
+                        <input id="customerQuantity" name="customerQuantity" type="text" placeholder="e.g. 200 liters" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="customerMessage">Order notes / Delivery instructions</label>
+                        <textarea id="customerMessage" name="customerMessage" placeholder="Tell us about your delivery preference, schedules, or package requirements."></textarea>
+                    </div>
+                    <button class="btn btn-primary" type="submit">Submit order request</button>
+                </form>
+                <p id="orderMessage" class="helper"></p>
+            </section>
+
+            <!-- Tab 3: Profile -->
+            <section id="profileTab" class="tab-content dashboard-block">
+                <h3>Manage Profile Settings</h3>
+                <p>Keep your contact details up to date so we can coordinate your deliveries smoothly.</p>
+                <form id="profileForm" style="max-width: 600px;">
+                    <div class="form-group">
+                        <label for="profileName">Full name</label>
+                        <input id="profileName" name="name" type="text" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="profilePhone">Phone number</label>
+                        <input id="profilePhone" name="phone" type="tel" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="profilePassword">New Password (leave blank to keep current)</label>
+                        <input id="profilePassword" name="password" type="password" placeholder="••••••••" />
+                    </div>
+                    <button class="btn btn-primary" type="submit">Update Profile</button>
+                </form>
+                <p id="profileMessage" class="helper"></p>
+            </section>
+        </div>
+
+        <!-- Mock Payment Modal -->
+        <div id="paymentModal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Secure Checkout</h3>
+                    <button class="modal-close" id="closePaymentModal">&times;</button>
                 </div>
-                <div class="form-group">
-                    <label for="customerQuantity">Estimated quantity</label>
-                    <input id="customerQuantity" name="customerQuantity" type="text" placeholder="e.g. 200 liters" required />
+                <div class="modal-body">
+                    <p>Complete your payment for <strong>Order #<span id="paymentOrderId"></span></strong> (<span id="paymentProductDetails"></span>).</p>
+                    <form id="paymentForm">
+                        <input type="hidden" id="paymentTargetOrderId" />
+                        <div class="form-group">
+                            <label for="paymentMethod">Payment Method</label>
+                            <select id="paymentMethod" required>
+                                <option value="mpesa">M-Pesa / Mobile Money</option>
+                                <option value="card">Credit or Debit Card</option>
+                            </select>
+                        </div>
+                        
+                        <!-- M-Pesa Inputs -->
+                        <div id="mpesaFields" class="form-group">
+                            <label for="mpesaPhone">Phone number (M-Pesa registered)</label>
+                            <input id="mpesaPhone" type="tel" placeholder="e.g. +254700000000" />
+                            <p class="helper">You will receive an STK Push on your phone to enter your PIN.</p>
+                        </div>
+
+                        <!-- Card Inputs -->
+                        <div id="cardFields" class="form-group" style="display: none;">
+                            <label for="cardNumber">Card Number</label>
+                            <input id="cardNumber" type="text" placeholder="4000 1234 5678 9010" />
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem;">
+                                <div>
+                                    <label for="cardExpiry">Expiry Date</label>
+                                    <input id="cardExpiry" type="text" placeholder="MM/YY" />
+                                </div>
+                                <div>
+                                    <label for="cardCvv">CVV</label>
+                                    <input id="cardCvv" type="password" placeholder="123" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary" type="submit" style="width: 100%; margin-top: 1rem;" id="submitPaymentBtn">Process Mock Payment</button>
+                    </form>
+                    <p id="paymentMessage" class="helper" style="text-align: center; font-weight: 600;"></p>
                 </div>
-                <div class="form-group">
-                    <label for="customerMessage">Order notes</label>
-                    <textarea id="customerMessage" name="customerMessage" placeholder="Tell us about your delivery preference and volume."></textarea>
-                </div>
-                <button class="btn btn-primary" type="submit">Submit order request</button>
-            </form>
-            <p id="orderMessage" class="helper"></p>
-        </section>
+            </div>
+        </div>
     </main>
 
     <footer class="site-footer">

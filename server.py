@@ -60,6 +60,17 @@ def init_db():
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS contact_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL,
+            message TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
     conn.commit()
     conn.close()
 
@@ -71,12 +82,22 @@ def hash_password(password: str, salt: str) -> str:
 def ensure_seed_users():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    admin = conn.execute("SELECT id FROM users WHERE email = ?", ("admin@moofresh.com",)).fetchone()
+    # Clear old admin if any
+    conn.execute("DELETE FROM users WHERE email = 'admin@moofresh.com'")
+    
+    admin = conn.execute("SELECT id FROM users WHERE email = ?", ("lucymumo537@gmail.com",)).fetchone()
     if admin is None:
         salt = secrets.token_hex(16)
         conn.execute(
             "INSERT INTO users (name, email, phone, password_hash, password_salt, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            ("Admin Team", "admin@moofresh.com", "+254700000000", hash_password("admin123", salt), salt, "admin", "2026-07-10T00:00:00"),
+            ("Lucy Mumo", "lucymumo537@gmail.com", "+254797966428", hash_password("7lucy11", salt), salt, "admin", "2026-07-10T00:00:00"),
+        )
+    else:
+        # Keep admin credentials permanent and updated
+        salt = secrets.token_hex(16)
+        conn.execute(
+            "UPDATE users SET name = ?, phone = ?, password_hash = ?, password_salt = ? WHERE email = ?",
+            ("Lucy Mumo", "+254797966428", hash_password("7lucy11", salt), salt, "lucymumo537@gmail.com"),
         )
     customer = conn.execute("SELECT id FROM users WHERE email = ?", ("demo@customer.com",)).fetchone()
     if customer is None:
@@ -125,6 +146,28 @@ class DairyHandler(BaseHTTPRequestHandler):
         if path == "/api/me":
             self.send_json(200, self.current_user_payload())
             return
+        if path == "/api/my-orders":
+            user = self.get_current_user()
+            if not user:
+                self.send_json(401, {"error": "Authentication required"})
+                return
+            conn = sqlite3.connect(DB_PATH)
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("SELECT * FROM orders WHERE customer_email = ? ORDER BY id DESC", (user["email"],)).fetchall()
+            conn.close()
+            payload = [{
+                "id": row["id"],
+                "customerName": row["customer_name"],
+                "customerEmail": row["customer_email"],
+                "customerPhone": row["customer_phone"],
+                "product": row["product"],
+                "quantity": row["quantity"],
+                "message": row["message"],
+                "status": row["status"],
+                "createdAt": row["created_at"],
+            } for row in rows]
+            self.send_json(200, {"orders": payload})
+            return
         if path == "/api/orders":
             if not self.require_role("admin"):
                 return
@@ -165,6 +208,22 @@ class DairyHandler(BaseHTTPRequestHandler):
             } for row in rows]
             self.send_json(200, {"products": payload})
             return
+        if path == "/api/contact":
+            if not self.require_role("admin"):
+                return
+            conn = sqlite3.connect(DB_PATH)
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("SELECT * FROM contact_messages ORDER BY id DESC").fetchall()
+            conn.close()
+            payload = [{
+                "id": row["id"],
+                "name": row["name"],
+                "email": row["email"],
+                "message": row["message"],
+                "createdAt": row["created_at"],
+            } for row in rows]
+            self.send_json(200, {"messages": payload})
+            return
         self.send_json(404, {"error": "Not found"})
 
     def handle_api_post(self, path):
@@ -177,11 +236,132 @@ class DairyHandler(BaseHTTPRequestHandler):
         if path == "/api/products":
             self.handle_product_create()
             return
+        if path == "/api/profile/update":
+            self.handle_profile_update()
+            return
+        if path == "/api/orders/update-status":
+            self.handle_order_status_update()
+            return
+        if path == "/api/products/edit":
+            self.handle_product_edit()
+            return
+        if path == "/api/products/delete":
+            self.handle_product_delete()
+            return
+        if path == "/api/contact":
+            self.handle_contact_create()
+            return
         if path == "/api/logout":
             self.clear_session()
             self.send_json(200, {"ok": True, "message": "Logged out"})
             return
         self.send_json(404, {"error": "Not found"})
+
+    def handle_profile_update(self):
+        user = self.get_current_user()
+        if not user:
+            self.send_json(401, {"error": "Authentication required"})
+            return
+        payload = self.read_json_body() or {}
+        name = (payload.get("name") or "").strip()
+        phone = (payload.get("phone") or "").strip()
+        password = payload.get("password") or ""
+
+        if not name or not phone:
+            self.send_json(400, {"error": "Name and phone are required"})
+            return
+
+        conn = sqlite3.connect(DB_PATH)
+        if password:
+            salt = secrets.token_hex(16)
+            conn.execute(
+                "UPDATE users SET name = ?, phone = ?, password_hash = ?, password_salt = ? WHERE id = ?",
+                (name, phone, hash_password(password, salt), salt, user["id"]),
+            )
+        else:
+            conn.execute(
+                "UPDATE users SET name = ?, phone = ? WHERE id = ?",
+                (name, phone, user["id"]),
+            )
+        conn.commit()
+        
+        # Update user dict in active session
+        user["name"] = name
+        user["phone"] = phone
+        
+        conn.close()
+        self.send_json(200, {"ok": True, "message": "Profile updated successfully", "user": user})
+
+    def handle_order_status_update(self):
+        if not self.require_role("admin"):
+            return
+        payload = self.read_json_body() or {}
+        order_id = payload.get("orderId")
+        status = (payload.get("status") or "").strip()
+        if not order_id or not status:
+            self.send_json(400, {"error": "Order ID and status are required"})
+            return
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("UPDATE orders SET status = ? WHERE id = ?", (status, order_id))
+        conn.commit()
+        conn.close()
+        self.send_json(200, {"ok": True, "message": "Order status updated successfully"})
+
+    def handle_product_edit(self):
+        if not self.require_role("admin"):
+            return
+        payload = self.read_json_body() or {}
+        product_id = payload.get("id")
+        name = (payload.get("name") or "").strip()
+        description = (payload.get("description") or "").strip()
+        category = (payload.get("category") or "").strip()
+        price = (payload.get("price") or "").strip()
+        stock = (payload.get("stock") or "").strip()
+        is_published = self.parse_bool(payload.get("isPublished") or payload.get("is_published") or True)
+
+        if not product_id or not all([name, description, category, price, stock]):
+            self.send_json(400, {"error": "All fields are required to edit product"})
+            return
+
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute(
+            "UPDATE products SET name = ?, description = ?, category = ?, price = ?, stock = ?, is_published = ? WHERE id = ?",
+            (name, description, category, price, stock, is_published, product_id)
+        )
+        conn.commit()
+        conn.close()
+        self.send_json(200, {"ok": True, "message": "Product updated successfully"})
+
+    def handle_product_delete(self):
+        if not self.require_role("admin"):
+            return
+        payload = self.read_json_body() or {}
+        product_id = payload.get("id")
+        if not product_id:
+            self.send_json(400, {"error": "Product ID is required"})
+            return
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("DELETE FROM products WHERE id = ?", (product_id,))
+        conn.commit()
+        conn.close()
+        self.send_json(200, {"ok": True, "message": "Product deleted successfully"})
+
+    def handle_contact_create(self):
+        payload = self.read_json_body() or {}
+        name = (payload.get("name") or "").strip()
+        email = (payload.get("email") or "").strip().lower()
+        message = (payload.get("message") or "").strip()
+        if not name or not email or not message:
+            self.send_json(400, {"error": "All contact fields are required"})
+            return
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute(
+            "INSERT INTO contact_messages (name, email, message, created_at) VALUES (?, ?, ?, ?)",
+            (name, email, message, self.timestamp())
+        )
+        conn.commit()
+        conn.close()
+        self.send_json(200, {"ok": True, "message": "Message sent successfully! We will get back to you shortly."})
 
     def handle_auth(self):
         payload = self.read_json_body()
