@@ -4,14 +4,17 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Dashboard | MooFresh Dairy</title>
+    <title>Admin Dashboard | Everlasting Milk & Yoghurt</title>
     <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
     <header class="site-header">
         <div class="container navbar">
-            <div class="brand">MooFresh Dairy</div>
+            <a href="index.html" class="brand-logo-link">
+                <img src="logo.png" alt="Everlasting Milk & Yoghurt Logo" class="site-logo" />
+                <span class="brand">Everlasting Milk & Yoghurt</span>
+            </a>
             <nav class="nav-links" aria-label="Primary navigation">
                 <a href="index.html">Home</a>
                 <a href="about.html">About</a>
@@ -19,7 +22,6 @@
                 <a href="services.html">Services</a>
                 <a href="contact.html">Contact</a>
                 <a href="customer-login.html">Customer Portal</a>
-                <a class="active" href="admin-login.html">Admin</a>
             </nav>
         </div>
     </header>
@@ -50,7 +52,7 @@
             <div class="dashboard-welcome">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                     <div>
-                        <h2>MooFresh Admin Console</h2>
+                        <h2>Everlasting Admin Console</h2>
                         <p>Welcome back, <span id="adminNameDisplay">Admin</span>. System online.</p>
                     </div>
                     <button class="btn btn-secondary" id="adminLogoutBtn">Sign Out</button>
@@ -209,7 +211,7 @@
     </main>
 
     <footer class="site-footer">
-        <div class="container">© 2026 MooFresh Dairy. Internal dashboard.</div>
+        <div class="container">© 2026 Everlasting Milk & Yoghurt. Internal dashboard.</div>
     </footer>
 
     <script src="script.js"></script>

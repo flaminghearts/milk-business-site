@@ -103,6 +103,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
             if (result.authenticated) {
                 currentUser = result.user;
+                // If admin is already logged in and on the customer portal, redirect to admin page
+                if (currentUser.role === 'admin' && window.location.pathname.includes('customer-login')) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
                 initializeDashboard();
             } else {
                 showAuthView();
@@ -174,9 +179,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentUser = result.user;
                 if (authMessage) authMessage.textContent = '';
                 authForm.reset();
+
+                // If admin credentials entered at customer portal, redirect to admin dashboard
+                if (currentUser.role === 'admin') {
+                    if (authMessage) {
+                        authMessage.className = 'helper helper-success';
+                        authMessage.textContent = 'Admin account detected — redirecting to admin dashboard…';
+                    }
+                    setTimeout(() => {
+                        window.location.href = 'admin-login.html';
+                    }, 800);
+                    return;
+                }
+
                 initializeDashboard();
             } catch (error) {
-                if (authMessage) authMessage.textContent = error.message;
+                if (authMessage) {
+                    authMessage.className = 'helper helper-error';
+                    authMessage.textContent = error.message;
+                }
             }
         });
     }

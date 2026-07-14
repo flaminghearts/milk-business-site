@@ -4,14 +4,17 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Customer Portal | MooFresh Dairy</title>
+    <title>Customer Portal | Everlasting Milk & Yoghurt</title>
     <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
     <header class="site-header">
         <div class="container navbar">
-            <div class="brand">MooFresh Dairy</div>
+            <a href="index.html" class="brand-logo-link">
+                <img src="logo.png" alt="Everlasting Milk & Yoghurt Logo" class="site-logo" />
+                <span class="brand">Everlasting Milk & Yoghurt</span>
+            </a>
             <nav class="nav-links" aria-label="Primary navigation">
                 <a href="index.html">Home</a>
                 <a href="about.html">About</a>
@@ -19,7 +22,6 @@
                 <a href="services.html">Services</a>
                 <a href="contact.html">Contact</a>
                 <a class="active" href="customer-login.html">Customer Portal</a>
-                <a href="admin-login.html">Admin</a>
             </nav>
         </div>
     </header>
@@ -29,7 +31,7 @@
         <div id="authView" class="auth-shell">
             <section class="auth-box">
                 <h2>Customer access</h2>
-                <p>Sign in to request orders, view private quotes, and keep your history with MooFresh Dairy.</p>
+                <p>Sign in to request orders, view private quotes, and keep your history with Everlasting Milk & Yoghurt.</p>
                 <form id="authForm" class="auth-form">
                     <div class="form-group">
                         <label for="authEmail">Email</label>
@@ -68,7 +70,7 @@
             </section>
         </div>
 
-        <!-- Dashboard View: Shown when user is authenticated -->
+        <!-- Dashboard View: Shown when customer is authenticated -->
         <div id="dashboardView" style="display: none;">
             <div class="dashboard-welcome">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
@@ -214,7 +216,7 @@
     </main>
 
     <footer class="site-footer">
-        <div class="container">© 2026 MooFresh Dairy. Private customer portal.</div>
+        <div class="container">© 2026 Everlasting Milk & Yoghurt. Private customer portal.</div>
     </footer>
 
     <script src="script.js"></script>

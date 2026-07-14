@@ -86,8 +86,32 @@ h1, h2, h3, h4, h5, h6, .brand {
     gap: 1.5rem;
 }
 
+.brand-logo-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    flex-shrink: 0;
+}
+
+.site-logo {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(245, 185, 66, 0.4);
+    box-shadow: 0 0 12px rgba(245, 185, 66, 0.2);
+    transition: var(--transition);
+}
+
+.brand-logo-link:hover .site-logo {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px rgba(245, 185, 66, 0.4);
+    transform: scale(1.05);
+}
+
 .brand {
-    font-size: 1.4rem;
+    font-size: 1.25rem;
     font-weight: 800;
     letter-spacing: 0.02em;
     background: linear-gradient(135deg, #FFFFFF 50%, var(--accent) 100%);
