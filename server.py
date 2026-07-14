@@ -395,7 +395,7 @@ class DairyHandler(BaseHTTPRequestHandler):
             conn.commit()
             user_row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
         else:
-            user_row = conn.execute("SELECT * FROM users WHERE email = ? AND role = ?", (email, role)).fetchone()
+            user_row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
             if not user_row or not self.verify_password(password, user_row["password_hash"], user_row["password_salt"]):
                 conn.close()
                 self.send_json(401, {"error": "Invalid credentials"})

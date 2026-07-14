@@ -159,7 +159,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const mode = formData.get('mode') || 'login';
             const payload = {
                 mode: mode,
-                role: 'customer',
+                // For registration always create a customer account.
+                // For login, omit role so the server authenticates by email+password
+                // and returns the actual role (admin or customer) from the database.
+                role: mode === 'register' ? 'customer' : undefined,
                 email: formData.get('email') || '',
                 password: formData.get('password') || '',
                 name: formData.get('name') || '',
