@@ -39,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const mpesaFields = document.getElementById('mpesaFields');
     const cardFields = document.getElementById('cardFields');
     const paymentMessage = document.getElementById('paymentMessage');
+    const mpesaPhone = document.getElementById('mpesaPhone');
 
     // Admin Portal Elements
     const adminAuthForm = document.getElementById('adminAuthForm');
@@ -84,6 +85,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
     setupTabs();
+
+    // Check payment redirect result in URL params
+    const checkPaymentRedirect = () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const paymentStatus = urlParams.get('payment');
+        if (paymentStatus === 'success') {
+            alert('Payment successful! Your order has been updated.');
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } else if (paymentStatus === 'cancelled') {
+            alert('Payment was cancelled.');
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } else if (paymentStatus === 'failed') {
+            alert('Payment failed. Please try again.');
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    };
+    checkPaymentRedirect();
 
     // Toggle customer register name group
     if (authMode) {
@@ -367,49 +385,98 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Handle payment simulation form submission
-    if (paymentForm) {
-        paymentForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const orderId = paymentTargetOrderId.value;
-            const submitBtn = document.getElementById('submitPaymentBtn');
-            
-            if (submitBtn) submitBtn.disabled = true;
-            if (paymentMessage) {
-                paymentMessage.className = 'helper';
-                paymentMessage.textContent = 'Contacting payment gateway…';
-            }
+    let pollingInterval = null;
 
-            // Simulate server network request delay
-            setTimeout(async () => {
-                try {
-                    const response = await fetch('/api/orders/update-status', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ orderId: orderId, status: 'Paid' })
-                    });
-                    const result = await response.json();
-                    if (!response.ok) throw new Error(result.error);
-                    
+    const startPollingPaymentStatus = (orderId, submitBtn) => {
+        if (pollingInterval) clearInterval(pollingInterval);
+        
+        pollingInterval = setInterval(async () => {
+            try {
+                const response = await fetch(`/api/payments/status?orderId=${orderId}`);
+                const result = await response.json();
+                
+                if (result.status === 'Paid') {
+                    clearInterval(pollingInterval);
                     if (paymentMessage) {
                         paymentMessage.className = 'helper helper-success';
-                        paymentMessage.textContent = 'Payment successful! Updating status…';
+                        paymentMessage.textContent = 'Payment successful! Updating orders…';
                     }
-                    
                     setTimeout(() => {
                         if (paymentModal) paymentModal.style.display = 'none';
                         if (submitBtn) submitBtn.disabled = false;
                         paymentForm.reset();
                         loadCustomerOrders();
-                    }, 1000);
-                } catch (err) {
+                    }, 1500);
+                } else if (result.status === 'Failed') {
+                    clearInterval(pollingInterval);
                     if (submitBtn) submitBtn.disabled = false;
                     if (paymentMessage) {
                         paymentMessage.className = 'helper helper-error';
-                        paymentMessage.textContent = err.message || 'Payment simulation failed.';
+                        paymentMessage.textContent = result.error || 'Payment failed. Please try again.';
                     }
                 }
-            }, 1500);
+            } catch (err) {
+                console.error('Error polling payment status:', err);
+            }
+        }, 3000);
+    };
+
+    // Handle payment form submission
+    if (paymentForm) {
+        paymentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const orderId = paymentTargetOrderId.value;
+            const method = paymentMethod.value;
+            const submitBtn = document.getElementById('submitPaymentBtn');
+            
+            if (submitBtn) submitBtn.disabled = true;
+            if (paymentMessage) {
+                paymentMessage.className = 'helper';
+                paymentMessage.textContent = 'Initiating transaction…';
+            }
+
+            const payload = {
+                orderId: orderId,
+                method: method
+            };
+
+            if (method === 'mpesa') {
+                if (mpesaPhone) {
+                    payload.phone = mpesaPhone.value;
+                }
+            }
+
+            try {
+                const response = await fetch('/api/payments/initiate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Failed to initiate payment');
+
+                if (method === 'mpesa') {
+                    if (paymentMessage) {
+                        paymentMessage.className = 'helper helper-success';
+                        paymentMessage.textContent = result.message || 'STK Push sent! Please enter your PIN on your phone.';
+                    }
+                    startPollingPaymentStatus(orderId, submitBtn);
+                } else if (method === 'card') {
+                    if (paymentMessage) {
+                        paymentMessage.className = 'helper helper-success';
+                        paymentMessage.textContent = 'Redirecting to Stripe secure checkout page…';
+                    }
+                    setTimeout(() => {
+                        window.location.href = result.checkoutUrl;
+                    }, 1000);
+                }
+            } catch (err) {
+                if (submitBtn) submitBtn.disabled = false;
+                if (paymentMessage) {
+                    paymentMessage.className = 'helper helper-error';
+                    paymentMessage.textContent = err.message || 'Payment initiation failed.';
+                }
+            }
         });
     }
 

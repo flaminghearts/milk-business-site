@@ -193,21 +193,10 @@
 
                         <!-- Card Inputs -->
                         <div id="cardFields" class="form-group" style="display: none;">
-                            <label for="cardNumber">Card Number</label>
-                            <input id="cardNumber" type="text" placeholder="4000 1234 5678 9010" />
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem;">
-                                <div>
-                                    <label for="cardExpiry">Expiry Date</label>
-                                    <input id="cardExpiry" type="text" placeholder="MM/YY" />
-                                </div>
-                                <div>
-                                    <label for="cardCvv">CVV</label>
-                                    <input id="cardCvv" type="password" placeholder="123" />
-                                </div>
-                            </div>
+                            <p class="helper" style="margin-bottom: 0.5rem;">You will be redirected to a secure Stripe Checkout page to complete your payment.</p>
                         </div>
 
-                        <button class="btn btn-primary" type="submit" style="width: 100%; margin-top: 1rem;" id="submitPaymentBtn">Process Mock Payment</button>
+                        <button class="btn btn-primary" type="submit" style="width: 100%; margin-top: 1rem;" id="submitPaymentBtn">Pay Now</button>
                     </form>
                     <p id="paymentMessage" class="helper" style="text-align: center; font-weight: 600;"></p>
                 </div>
