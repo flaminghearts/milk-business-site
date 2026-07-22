@@ -8,6 +8,8 @@ import re
 import urllib.request
 import urllib.error
 import urllib.parse
+import smtplib
+from email.mime.text import MIMEText
 from datetime import datetime
 from http import HTTPStatus
 from http.cookies import SimpleCookie
@@ -51,6 +53,66 @@ def parse_quantity(qty_str):
     if match:
         return float(match.group())
     return 1.0  # default fallback quantity
+
+def deduct_stock(current_stock_str, qty_to_deduct):
+    num_match = re.search(r'([\d\.]+)\s*(.*)', current_stock_str)
+    if num_match:
+        val = float(num_match.group(1))
+        suffix = num_match.group(2)
+        new_val = max(0.0, val - float(qty_to_deduct))
+        if new_val.is_integer():
+            new_val = int(new_val)
+        return f"{new_val}{suffix}"
+    return current_stock_str
+
+def send_email_notification(to_email, subject, body):
+    host = CONFIG.get("SMTP_HOST")
+    port = CONFIG.get("SMTP_PORT")
+    user = CONFIG.get("SMTP_USER")
+    password = CONFIG.get("SMTP_PASSWORD")
+    
+    if not host or not user or not password or host.startswith("placeholder") or user.startswith("placeholder"):
+        # Write to log file if not configured
+        log_file = ROOT / "email_logs.txt"
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"--- EMAIL SENT at {datetime.now()} ---\n")
+            f.write(f"To: {to_email}\n")
+            f.write(f"Subject: {subject}\n")
+            f.write(f"Body:\n{body}\n")
+            f.write("-" * 40 + "\n\n")
+        print(f"SMTP not configured. Email logged to {log_file}")
+        return True
+        
+    try:
+        msg = MIMEText(body)
+        msg['Subject'] = subject
+        msg['From'] = user
+        msg['To'] = to_email
+        
+        port_int = int(port)
+        if port_int == 465:
+            server = smtplib.SMTP_SSL(host, port_int)
+        else:
+            server = smtplib.SMTP(host, port_int)
+            server.starttls()
+            
+        server.login(user, password)
+        server.sendmail(user, [to_email], msg.as_string())
+        server.quit()
+        print(f"Email sent successfully to {to_email}")
+        return True
+    except Exception as e:
+        print(f"Failed to send email to {to_email}: {e}")
+        # Log to file on error as fallback
+        log_file = ROOT / "email_logs.txt"
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"--- EMAIL FAILURE at {datetime.now()} ---\n")
+            f.write(f"Error: {e}\n")
+            f.write(f"To: {to_email}\n")
+            f.write(f"Subject: {subject}\n")
+            f.write(f"Body:\n{body}\n")
+            f.write("-" * 40 + "\n\n")
+        return False
 
 # --- M-Pesa STK Push API Helpers ---
 
@@ -282,6 +344,21 @@ def init_db():
         """
     )
     conn.commit()
+    
+    # Run migrations to add missing columns dynamically
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info(products)")
+    columns = [row[1] for row in cursor.fetchall()]
+    if "buying_price" not in columns:
+        conn.execute("ALTER TABLE products ADD COLUMN buying_price TEXT NOT NULL DEFAULT 'Kes 80/L'")
+    
+    cursor.execute("PRAGMA table_info(orders)")
+    columns_orders = [row[1] for row in cursor.fetchall()]
+    if "delivery_man_id" not in columns_orders:
+        conn.execute("ALTER TABLE orders ADD COLUMN delivery_man_id INTEGER")
+    if "signature" not in columns_orders:
+        conn.execute("ALTER TABLE orders ADD COLUMN signature TEXT")
+    conn.commit()
     conn.close()
 
 
@@ -316,6 +393,13 @@ def ensure_seed_users():
         conn.execute(
             "INSERT INTO users (name, email, phone, password_hash, password_salt, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
             ("Demo Customer", "demo@customer.com", "+254700000001", hash_password("customer123", salt), salt, "customer", "2026-07-10T00:00:00"),
+        )
+    delivery = conn.execute("SELECT id FROM users WHERE email = ?", ("delivery@moofresh.com",)).fetchone()
+    if delivery is None:
+        salt = secrets.token_hex(16)
+        conn.execute(
+            "INSERT INTO users (name, email, phone, password_hash, password_salt, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("Demo Delivery", "delivery@moofresh.com", "+254700000002", hash_password("delivery123", salt), salt, "delivery", "2026-07-10T00:00:00"),
         )
     conn.commit()
     conn.close()
@@ -414,6 +498,7 @@ class DairyHandler(BaseHTTPRequestHandler):
                 "description": row["description"],
                 "category": row["category"],
                 "price": row["price"],
+                "buyingPrice": row["buying_price"],
                 "stock": row["stock"],
                 "isPublished": bool(row["is_published"]),
             } for row in rows]
@@ -441,6 +526,15 @@ class DairyHandler(BaseHTTPRequestHandler):
         if path == "/api/payments/stripe-success":
             self.handle_stripe_success_get()
             return
+        if path == "/api/deliveries/available":
+            self.handle_deliveries_available_get()
+            return
+        if path == "/api/deliveries/my-active":
+            self.handle_deliveries_my_active_get()
+            return
+        if path == "/api/deliveries/completed":
+            self.handle_deliveries_completed_get()
+            return
         self.send_json(404, {"error": "Not found"})
 
     def handle_api_post(self, path):
@@ -449,6 +543,12 @@ class DairyHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/payments/callback":
             self.handle_payment_callback_post()
+            return
+        if path == "/api/deliveries/accept":
+            self.handle_deliveries_accept_post()
+            return
+        if path == "/api/deliveries/complete":
+            self.handle_deliveries_complete_post()
             return
         if path == "/api/auth":
             self.handle_auth()
@@ -474,7 +574,7 @@ class DairyHandler(BaseHTTPRequestHandler):
         if path == "/api/contact":
             self.handle_contact_create()
             return
-        if path == "/api/logout":
+        if path in ("/api/logout", "/api/auth/logout"):
             self.clear_session()
             self.send_json(200, {"ok": True, "message": "Logged out"})
             return
@@ -814,6 +914,7 @@ class DairyHandler(BaseHTTPRequestHandler):
         description = (payload.get("description") or "").strip()
         category = (payload.get("category") or "").strip()
         price = (payload.get("price") or "").strip()
+        buying_price = (payload.get("buyingPrice") or payload.get("buying_price") or "Kes 80/L").strip()
         stock = (payload.get("stock") or "").strip()
         is_published = self.parse_bool(payload.get("isPublished") or payload.get("is_published") or True)
 
@@ -823,8 +924,8 @@ class DairyHandler(BaseHTTPRequestHandler):
 
         conn = sqlite3.connect(DB_PATH)
         conn.execute(
-            "UPDATE products SET name = ?, description = ?, category = ?, price = ?, stock = ?, is_published = ? WHERE id = ?",
-            (name, description, category, price, stock, is_published, product_id)
+            "UPDATE products SET name = ?, description = ?, category = ?, price = ?, buying_price = ?, stock = ?, is_published = ? WHERE id = ?",
+            (name, description, category, price, buying_price, stock, is_published, product_id)
         )
         conn.commit()
         conn.close()
@@ -937,7 +1038,22 @@ class DairyHandler(BaseHTTPRequestHandler):
         if not all([customer_name, customer_email, customer_phone, product, quantity]):
             self.send_json(400, {"error": "Please complete all required fields"})
             return
+        
         conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        
+        # Deduct stock
+        product_row = conn.execute("SELECT id, stock FROM products WHERE name = ?", (product,)).fetchone()
+        if product_row:
+            current_stock = product_row["stock"]
+            try:
+                # Find number in quantity string
+                qty_val = float(re.search(r'[\d\.]+', quantity).group())
+            except Exception:
+                qty_val = 1.0
+            new_stock = deduct_stock(current_stock, qty_val)
+            conn.execute("UPDATE products SET stock = ? WHERE id = ?", (new_stock, product_row["id"]))
+            
         conn.execute(
             "INSERT INTO orders (customer_name, customer_email, customer_phone, product, quantity, message, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (customer_name, customer_email, customer_phone, product, quantity, message, "Pending", self.timestamp()),
@@ -954,6 +1070,7 @@ class DairyHandler(BaseHTTPRequestHandler):
         description = (payload.get("description") or payload.get("productDescription") or "").strip()
         category = (payload.get("category") or payload.get("productCategory") or "").strip()
         price = (payload.get("price") or payload.get("productPrice") or "").strip()
+        buying_price = (payload.get("buyingPrice") or payload.get("buying_price") or "Kes 80/L").strip()
         stock = (payload.get("stock") or payload.get("productStock") or "").strip()
         is_published = self.parse_bool(payload.get("isPublished") or payload.get("is_published") or True)
         if not all([name, description, category, price, stock]):
@@ -961,8 +1078,8 @@ class DairyHandler(BaseHTTPRequestHandler):
             return
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.execute(
-            "INSERT INTO products (name, description, category, price, stock, is_published, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (name, description, category, price, stock, is_published, self.timestamp()),
+            "INSERT INTO products (name, description, category, price, buying_price, stock, is_published, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (name, description, category, price, buying_price, stock, is_published, self.timestamp()),
         )
         product_id = cursor.lastrowid
         row = conn.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
@@ -974,8 +1091,9 @@ class DairyHandler(BaseHTTPRequestHandler):
             "description": row[2],
             "category": row[3],
             "price": row[4],
-            "stock": row[5],
-            "isPublished": bool(row[6]),
+            "buyingPrice": row[5],
+            "stock": row[6],
+            "isPublished": bool(row[7]),
         }, "message": "Product added successfully"})
 
     def require_role(self, role):
@@ -1079,6 +1197,124 @@ class DairyHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def handle_deliveries_available_get(self):
+        user = self.require_role("delivery")
+        if not user:
+            return
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM orders WHERE status = 'Paid' AND (delivery_man_id IS NULL OR delivery_man_id = 0) ORDER BY id DESC").fetchall()
+        conn.close()
+        payload = [{
+            "id": row["id"],
+            "customerName": row["customer_name"],
+            "customerEmail": row["customer_email"],
+            "customerPhone": row["customer_phone"],
+            "product": row["product"],
+            "quantity": row["quantity"],
+            "message": row["message"],
+            "status": row["status"],
+            "createdAt": row["created_at"],
+        } for row in rows]
+        self.send_json(200, {"deliveries": payload})
+
+    def handle_deliveries_my_active_get(self):
+        user = self.require_role("delivery")
+        if not user:
+            return
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM orders WHERE delivery_man_id = ? AND status = 'In Progress' ORDER BY id DESC", (user["id"],)).fetchall()
+        conn.close()
+        payload = [{
+            "id": row["id"],
+            "customerName": row["customer_name"],
+            "customerEmail": row["customer_email"],
+            "customerPhone": row["customer_phone"],
+            "product": row["product"],
+            "quantity": row["quantity"],
+            "message": row["message"],
+            "status": row["status"],
+            "createdAt": row["created_at"],
+        } for row in rows]
+        self.send_json(200, {"deliveries": payload})
+
+    def handle_deliveries_completed_get(self):
+        user = self.require_role("delivery")
+        if not user:
+            return
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM orders WHERE delivery_man_id = ? AND status = 'Delivered' ORDER BY id DESC", (user["id"],)).fetchall()
+        conn.close()
+        payload = [{
+            "id": row["id"],
+            "customerName": row["customer_name"],
+            "customerEmail": row["customer_email"],
+            "customerPhone": row["customer_phone"],
+            "product": row["product"],
+            "quantity": row["quantity"],
+            "message": row["message"],
+            "status": row["status"],
+            "createdAt": row["created_at"],
+            "signature": row["signature"]
+        } for row in rows]
+        self.send_json(200, {"deliveries": payload})
+
+    def handle_deliveries_accept_post(self):
+        user = self.require_role("delivery")
+        if not user:
+            return
+        payload = self.read_json_body() or {}
+        order_id = payload.get("orderId")
+        if not order_id:
+            self.send_json(400, {"error": "Order ID is required"})
+            return
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        order = conn.execute("SELECT status FROM orders WHERE id = ?", (order_id,)).fetchone()
+        if not order or order["status"] != "Paid":
+            conn.close()
+            self.send_json(400, {"error": "Order is not available for delivery"})
+            return
+        conn.execute("UPDATE orders SET status = 'In Progress', delivery_man_id = ? WHERE id = ?", (user["id"], order_id))
+        conn.commit()
+        conn.close()
+        self.send_json(200, {"ok": True, "message": "Delivery accepted"})
+
+    def handle_deliveries_complete_post(self):
+        user = self.require_role("delivery")
+        if not user:
+            return
+        payload = self.read_json_body() or {}
+        order_id = payload.get("orderId")
+        signature = payload.get("signature")
+        if not order_id or not signature:
+            self.send_json(400, {"error": "Order ID and signature are required"})
+            return
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+        if not order or order["status"] != "In Progress" or order["delivery_man_id"] != user["id"]:
+            conn.close()
+            self.send_json(400, {"error": "Invalid order status or delivery man"})
+            return
+        conn.execute("UPDATE orders SET status = 'Delivered', signature = ? WHERE id = ?", (signature, order_id))
+        conn.commit()
+        conn.close()
+        
+        buyer_email = order["customer_email"]
+        admin_email = "lucymumo537@gmail.com"
+        
+        subject = f"Delivery Confirmed for Order #{order_id}"
+        buyer_body = f"Hello {order['customer_name']},\n\nYour order of {order['product']} ({order['quantity']}) has been successfully delivered and signed for.\n\nThank you for choosing MooFresh!"
+        admin_body = f"Hello Admin,\n\nOrder #{order_id} for {order['customer_name']} ({order['product']}, {order['quantity']}) has been successfully delivered by {user['name']}.\n\nSignature captured."
+        
+        send_email_notification(buyer_email, subject, buyer_body)
+        send_email_notification(admin_email, subject, admin_body)
+        
+        self.send_json(200, {"ok": True, "message": "Delivery completed and notifications sent"})
 
 
 def main():

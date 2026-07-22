@@ -859,3 +859,140 @@ textarea {
         align-items: flex-start;
     }
 }
+
+/* =====================================================
+   Tab Navigation (Deliveries Portal & Dashboard)
+   ===================================================== */
+.tab-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.tab-link {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border-dark);
+    color: var(--text-light);
+    padding: 0.55rem 1.25rem;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.tab-link:hover {
+    background: rgba(245, 185, 66, 0.1);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.tab-link.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--primary-dark);
+    font-weight: 700;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.bg-accent {
+    background: var(--accent);
+    border-radius: 999px;
+}
+
+/* =====================================================
+   Modal Overlay (Signature / Confirmation)
+   ===================================================== */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 12, 27, 0.85);
+    backdrop-filter: blur(6px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.modal-content {
+    background: var(--surface-dark);
+    border: 1px solid var(--border-dark);
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 25px 60px -10px rgba(2, 12, 27, 0.7);
+    animation: modal-in 0.25s ease;
+}
+
+@keyframes modal-in {
+    from { opacity: 0; transform: translateY(20px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border-dark);
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: var(--text-light);
+    font-size: 1.1rem;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.6rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.modal-close:hover { color: var(--accent); }
+
+.modal-body {
+    padding: 1.5rem;
+    color: var(--text-light);
+}
+
+.modal-body p {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+    color: var(--text-muted);
+}
+
+.modal-body p strong {
+    color: var(--text-light);
+}
+
+/* Delivery card within dark dashboards */
+.btn-full {
+    width: 100%;
+    text-align: center;
+    display: block;
+}
+
+.btn-small {
+    padding: 0.4rem 0.9rem;
+    font-size: 0.85rem;
+}

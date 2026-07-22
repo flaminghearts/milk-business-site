@@ -681,7 +681,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const products = result.products || [];
             if (!products.length) {
-                inventoryTableBody.innerHTML = '<tr><td colspan="5" class="helper">No products in inventory.</td></tr>';
+                inventoryTableBody.innerHTML = '<tr><td colspan="6" class="helper">No products in inventory.</td></tr>';
                 return;
             }
 
@@ -690,6 +690,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 row.innerHTML = `
                     <td><strong>${prod.name}</strong><br><span class="helper" style="font-size: 0.8rem;">${prod.description.substring(0, 50)}…</span></td>
                     <td>${prod.price}</td>
+                    <td><span style="color:#F5B942;font-weight:600;">${prod.buyingPrice || '—'}</span></td>
                     <td>${prod.stock}</td>
                     <td><span class="tag ${prod.isPublished ? 'paid' : 'pending'}">${prod.isPublished ? 'Published' : 'Draft'}</span></td>
                     <td>
@@ -700,6 +701,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     data-desc="${prod.description}" 
                                     data-cat="${prod.category}" 
                                     data-price="${prod.price}" 
+                                    data-buying="${prod.buyingPrice || ''}" 
                                     data-stock="${prod.stock}" 
                                     data-pub="${prod.isPublished}">Edit</button>
                             <button class="btn btn-danger btn-small delete-prod-btn" data-id="${prod.id}">Delete</button>
@@ -736,6 +738,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const desc = btn.getAttribute('data-desc');
                     const cat = btn.getAttribute('data-cat');
                     const price = btn.getAttribute('data-price');
+                    const buying = btn.getAttribute('data-buying');
                     const stock = btn.getAttribute('data-stock');
                     const pub = btn.getAttribute('data-pub') === 'true';
 
@@ -745,6 +748,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('productDescription').value = desc;
                     document.getElementById('productCategory').value = cat;
                     document.getElementById('productPrice').value = price;
+                    const buyingEl = document.getElementById('productBuyingPrice');
+                    if (buyingEl) buyingEl.value = buying;
                     document.getElementById('productStock').value = stock;
                     document.getElementById('productPublished').value = pub ? 'true' : 'false';
 
@@ -757,7 +762,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
         } catch (e) {
-            inventoryTableBody.innerHTML = '<tr><td colspan="5" class="helper">Error loading inventory.</td></tr>';
+            inventoryTableBody.innerHTML = '<tr><td colspan="6" class="helper">Error loading inventory.</td></tr>';
         }
     };
 
@@ -914,3 +919,290 @@ document.addEventListener('DOMContentLoaded', () => {
     // Execute session checks
     checkSession();
 });
+
+// ============================================================
+// DELIVERIES PORTAL — runs only on deliveries.html
+// ============================================================
+(function () {
+    if (!document.getElementById('deliveryLoginForm')) return;
+
+    // ---- State ----
+    let deliveryUser = null;
+    let pendingCompleteOrderId = null;
+
+    // ---- DOM refs ----
+    const authView       = document.getElementById('deliveryAuthView');
+    const dashView       = document.getElementById('deliveryDashboardView');
+    const loginForm      = document.getElementById('deliveryLoginForm');
+    const loginMsg       = document.getElementById('deliveryAuthMessage');
+    const navActions     = document.getElementById('deliveryNavActions');
+    const agentNameEl    = document.getElementById('deliveryManName');
+    const logoutBtn      = document.getElementById('deliveryLogoutBtn');
+    const availableList  = document.getElementById('availableDeliveriesList');
+    const activeList     = document.getElementById('activeDeliveriesList');
+    const completedList  = document.getElementById('completedDeliveriesList');
+    const availCount     = document.getElementById('availableCount');
+    const activeCount    = document.getElementById('activeCount');
+
+    // ---- Signature modal ----
+    const sigModal       = document.getElementById('signatureModal');
+    const closeSigModal  = document.getElementById('closeSignatureModal');
+    const clearSigBtn    = document.getElementById('clearSignatureBtn');
+    const submitSigBtn   = document.getElementById('submitDeliveryBtn');
+    const sigCanvas      = document.getElementById('signatureCanvas');
+    const sigMsg         = document.getElementById('signatureMessage');
+    const sigCustName    = document.getElementById('sigCustomerName');
+    const sigProdDet     = document.getElementById('sigProductDetails');
+
+    // ---- Canvas drawing ----
+    let isDrawing = false;
+    let ctx;
+    if (sigCanvas) {
+        ctx = sigCanvas.getContext('2d');
+        ctx.strokeStyle = '#0A192F';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        const getPos = (e) => {
+            const rect = sigCanvas.getBoundingClientRect();
+            const scaleX = sigCanvas.width / rect.width;
+            const scaleY = sigCanvas.height / rect.height;
+            const src = e.touches ? e.touches[0] : e;
+            return {
+                x: (src.clientX - rect.left) * scaleX,
+                y: (src.clientY - rect.top) * scaleY
+            };
+        };
+
+        const startDraw = (e) => { e.preventDefault(); isDrawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
+        const draw = (e) => { e.preventDefault(); if (!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
+        const stopDraw = () => { isDrawing = false; };
+
+        sigCanvas.addEventListener('mousedown', startDraw);
+        sigCanvas.addEventListener('mousemove', draw);
+        sigCanvas.addEventListener('mouseup', stopDraw);
+        sigCanvas.addEventListener('mouseleave', stopDraw);
+        sigCanvas.addEventListener('touchstart', startDraw, { passive: false });
+        sigCanvas.addEventListener('touchmove', draw, { passive: false });
+        sigCanvas.addEventListener('touchend', stopDraw);
+    }
+
+    const clearCanvas = () => {
+        if (ctx) ctx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+    };
+
+    if (clearSigBtn) clearSigBtn.addEventListener('click', clearCanvas);
+    if (closeSigModal) closeSigModal.addEventListener('click', () => { sigModal.style.display = 'none'; pendingCompleteOrderId = null; });
+
+    // ---- Tab switching ----
+    document.querySelectorAll('.tab-link').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-link').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            const target = document.getElementById(btn.dataset.tab);
+            if (target) target.classList.add('active');
+        });
+    });
+
+    // ---- Auth ----
+    const showDashboard = (user) => {
+        deliveryUser = user;
+        if (authView) authView.style.display = 'none';
+        if (dashView) dashView.style.display = 'block';
+        if (navActions) navActions.style.display = 'flex';
+        if (agentNameEl) agentNameEl.textContent = user.name;
+        loadAllDeliveries();
+    };
+
+    // Check if already logged in
+    fetch('/api/me').then(r => r.json()).then(res => {
+        if (res.authenticated && res.user.role === 'delivery') {
+            showDashboard(res.user);
+        }
+    }).catch(() => {});
+
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (loginMsg) { loginMsg.className = 'helper'; loginMsg.textContent = 'Signing in…'; }
+            const email    = document.getElementById('deliveryEmail').value.trim();
+            const password = document.getElementById('deliveryPassword').value;
+            try {
+                const res = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: 'login', email, password })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Login failed');
+                if (data.user.role !== 'delivery') throw new Error('This portal is for delivery agents only.');
+                showDashboard(data.user);
+            } catch (err) {
+                if (loginMsg) { loginMsg.className = 'helper helper-error'; loginMsg.textContent = err.message; }
+            }
+        });
+    }
+
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+            window.location.reload();
+        });
+    }
+
+    // ---- Load all tabs ----
+    const loadAllDeliveries = () => {
+        loadAvailable();
+        loadActive();
+        loadCompleted();
+    };
+
+    const deliveryCard = (d, actions = '') => `
+        <div class="delivery-card">
+            <h4>
+                <span>Order #${d.id} — ${d.product}</span>
+                <span class="status-badge">${d.status}</span>
+            </h4>
+            <div class="delivery-meta">
+                <span><strong>Customer:</strong> ${d.customerName}</span>
+                <span><strong>Phone:</strong> ${d.customerPhone}</span>
+                <span><strong>Qty:</strong> ${d.quantity}</span>
+                <span><strong>Date:</strong> ${(d.createdAt || '').split(' ')[0]}</span>
+            </div>
+            ${d.message ? `<div class="delivery-message">📝 ${d.message}</div>` : ''}
+            ${actions}
+        </div>`;
+
+    const loadAvailable = async () => {
+        if (!availableList) return;
+        availableList.innerHTML = '<div class="delivery-card" style="text-align:center;"><p class="helper">Loading…</p></div>';
+        try {
+            const res = await fetch('/api/deliveries/available');
+            const data = await res.json();
+            const items = data.deliveries || [];
+            if (availCount) availCount.textContent = items.length;
+            if (!items.length) {
+                availableList.innerHTML = '<div class="delivery-card" style="text-align:center;padding:2rem;"><p class="helper">No deliveries available right now. Check back soon!</p></div>';
+                return;
+            }
+            availableList.innerHTML = items.map(d => deliveryCard(d,
+                `<button class="btn btn-primary btn-full accept-btn" data-id="${d.id}">Accept Delivery</button>`
+            )).join('');
+            availableList.querySelectorAll('.accept-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const orderId = btn.getAttribute('data-id');
+                    btn.disabled = true;
+                    btn.textContent = 'Accepting…';
+                    try {
+                        const r = await fetch('/api/deliveries/accept', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ orderId: parseInt(orderId) })
+                        });
+                        const d = await r.json();
+                        if (!r.ok) throw new Error(d.error);
+                        loadAllDeliveries();
+                    } catch (err) {
+                        btn.disabled = false;
+                        btn.textContent = 'Accept Delivery';
+                        alert('Error: ' + err.message);
+                    }
+                });
+            });
+        } catch (e) {
+            availableList.innerHTML = '<div class="delivery-card"><p class="helper helper-error">Error loading available deliveries.</p></div>';
+        }
+    };
+
+    const loadActive = async () => {
+        if (!activeList) return;
+        activeList.innerHTML = '<div class="delivery-card" style="text-align:center;"><p class="helper">Loading…</p></div>';
+        try {
+            const res = await fetch('/api/deliveries/my-active');
+            const data = await res.json();
+            const items = data.deliveries || [];
+            if (activeCount) activeCount.textContent = items.length;
+            if (!items.length) {
+                activeList.innerHTML = '<div class="delivery-card" style="text-align:center;padding:2rem;"><p class="helper">You have no active deliveries in transit.</p></div>';
+                return;
+            }
+            activeList.innerHTML = items.map(d => deliveryCard(d,
+                `<button class="btn btn-primary btn-full complete-btn" data-id="${d.id}" data-name="${d.customerName}" data-product="${d.product} (${d.quantity})">Mark as Delivered</button>`
+            )).join('');
+            activeList.querySelectorAll('.complete-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    pendingCompleteOrderId = btn.getAttribute('data-id');
+                    if (sigCustName) sigCustName.textContent = btn.getAttribute('data-name');
+                    if (sigProdDet) sigProdDet.textContent = btn.getAttribute('data-product');
+                    clearCanvas();
+                    if (sigMsg) sigMsg.textContent = '';
+                    if (sigModal) sigModal.style.display = 'flex';
+                });
+            });
+        } catch (e) {
+            activeList.innerHTML = '<div class="delivery-card"><p class="helper helper-error">Error loading active deliveries.</p></div>';
+        }
+    };
+
+    const loadCompleted = async () => {
+        if (!completedList) return;
+        completedList.innerHTML = '<div class="delivery-card" style="text-align:center;"><p class="helper">Loading…</p></div>';
+        try {
+            const res = await fetch('/api/deliveries/completed');
+            const data = await res.json();
+            const items = data.deliveries || [];
+            if (!items.length) {
+                completedList.innerHTML = '<div class="delivery-card" style="text-align:center;padding:2rem;"><p class="helper">No completed deliveries yet.</p></div>';
+                return;
+            }
+            completedList.innerHTML = items.map(d => {
+                const sigPreview = d.signature
+                    ? `<div style="margin-top:0.75rem;"><p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.25rem;">Customer Signature:</p><img class="signature-img-preview" src="${d.signature}" alt="Signature"></div>`
+                    : '';
+                return deliveryCard(d, `<span class="tag paid" style="font-size:0.8rem;">✓ Delivered</span>${sigPreview}`);
+            }).join('');
+        } catch (e) {
+            completedList.innerHTML = '<div class="delivery-card"><p class="helper helper-error">Error loading history.</p></div>';
+        }
+    };
+
+    // ---- Signature submit ----
+    if (submitSigBtn) {
+        submitSigBtn.addEventListener('click', async () => {
+            if (!pendingCompleteOrderId) return;
+            // Check canvas has ink
+            const blank = !ctx.getImageData(0, 0, sigCanvas.width, sigCanvas.height).data.some(v => v !== 0);
+            if (blank) {
+                if (sigMsg) { sigMsg.className = 'helper helper-error'; sigMsg.textContent = 'Please have the customer sign above before confirming.'; }
+                return;
+            }
+            const signature = sigCanvas.toDataURL('image/png');
+            submitSigBtn.disabled = true;
+            submitSigBtn.textContent = 'Submitting…';
+            if (sigMsg) { sigMsg.className = 'helper'; sigMsg.textContent = 'Completing delivery and sending notifications…'; }
+            try {
+                const r = await fetch('/api/deliveries/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId: parseInt(pendingCompleteOrderId), signature })
+                });
+                const d = await r.json();
+                if (!r.ok) throw new Error(d.error);
+                if (sigMsg) { sigMsg.className = 'helper helper-success'; sigMsg.textContent = '✓ Delivery confirmed! Emails sent to buyer and admin.'; }
+                setTimeout(() => {
+                    sigModal.style.display = 'none';
+                    pendingCompleteOrderId = null;
+                    submitSigBtn.disabled = false;
+                    submitSigBtn.textContent = 'Confirm handover & notify';
+                    loadAllDeliveries();
+                }, 2200);
+            } catch (err) {
+                submitSigBtn.disabled = false;
+                submitSigBtn.textContent = 'Confirm handover & notify';
+                if (sigMsg) { sigMsg.className = 'helper helper-error'; sigMsg.textContent = err.message; }
+            }
+        });
+    }
+}());

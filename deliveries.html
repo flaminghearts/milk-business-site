@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deliveries Portal | MooFresh Dairy</title>
+    <meta name="description" content="MooFresh internal deliveries dashboard for delivery agents. Manage and update customer delivery status in real-time.">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Extra custom styles for Deliveries Portal */
+        .signature-container {
+            margin: 1.5rem 0;
+            background: #ffffff;
+            border-radius: var(--radius-md);
+            padding: 0.5rem;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
+        }
+        #signatureCanvas {
+            touch-action: none; /* Prevent scrolling while drawing */
+            border: 2px dashed #cbd5e1;
+            border-radius: var(--radius-sm);
+            background-color: #ffffff;
+            display: block;
+            width: 100%;
+            height: 200px;
+            cursor: crosshair;
+        }
+        .signature-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .delivery-card {
+            background: var(--surface-dark);
+            border: 1px solid var(--border-dark);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            margin-bottom: 1.25rem;
+            color: var(--text-light);
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+        .delivery-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+            border-color: var(--accent);
+        }
+        .delivery-card h4 {
+            margin-top: 0;
+            margin-bottom: 0.75rem;
+            font-size: 1.2rem;
+            color: var(--accent);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .delivery-meta {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem 1rem;
+        }
+        .delivery-meta span strong {
+            color: var(--text-light);
+        }
+        .delivery-message {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-md);
+            font-size: 0.9rem;
+            margin-bottom: 1.25rem;
+            border-left: 3px solid var(--accent);
+        }
+        .status-badge {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 700;
+        }
+        .btn-full {
+            width: 100%;
+            text-align: center;
+        }
+        .signature-img-preview {
+            max-height: 80px;
+            border: 1px solid var(--border-dark);
+            border-radius: var(--radius-sm);
+            background: #fff;
+            padding: 0.25rem;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header Navbar -->
+    <header class="site-header">
+        <div class="container navbar">
+            <a href="index.html" class="brand-logo-link">
+                <img src="logo.png" alt="MooFresh Logo" class="site-logo">
+                <span class="brand" style="font-size: 1.5rem; color: var(--text-light);">MooFresh <span style="color: var(--accent);">Deliveries</span></span>
+            </a>
+            <div id="deliveryNavActions" style="display: none;">
+                <span class="helper" style="margin-right: 1rem; font-weight: 500;">Hello, <span id="deliveryManName" style="color: var(--accent);">Agent</span></span>
+                <button class="btn btn-secondary btn-small" id="deliveryLogoutBtn">Sign Out</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container" style="padding: 3rem 0; min-height: 75vh;">
+        <!-- Auth View (Sign In) -->
+        <div id="deliveryAuthView" class="auth-card" style="max-width: 420px; margin: 0 auto; display: block;">
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <h2 style="font-size: 2rem; color: var(--text-light); margin-bottom: 0.5rem;">Agent Login</h2>
+                <p class="helper" style="color: var(--text-muted);">Access the deliveries board with your agent credentials.</p>
+            </div>
+            
+            <form id="deliveryLoginForm" class="auth-form">
+                <div class="form-group">
+                    <label for="deliveryEmail">Agent Email</label>
+                    <input id="deliveryEmail" name="email" type="email" placeholder="agent@moofresh.com" required autocomplete="email" />
+                </div>
+                <div class="form-group">
+                    <label for="deliveryPassword">Password</label>
+                    <input id="deliveryPassword" name="password" type="password" placeholder="••••••••" required autocomplete="current-password" />
+                </div>
+                <button class="btn btn-primary" type="submit" style="width: 100%; margin-top: 1rem;">Sign In to Dashboard</button>
+            </form>
+            <p id="deliveryAuthMessage" class="helper helper-error" style="text-align: center; margin-top: 1rem; font-weight: 600;"></p>
+        </div>
+
+        <!-- Dashboard View (Manage Deliveries) -->
+        <div id="deliveryDashboardView" style="display: none;">
+            <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h2 style="font-size: 2.2rem; color: var(--text-light); margin-bottom: 0.25rem;">Deliveries Dashboard</h2>
+                    <p class="helper" style="color: var(--text-muted);">Manage incoming and ongoing customer orders logistics.</p>
+                </div>
+                <!-- Tabs Controls -->
+                <div class="tab-buttons" style="margin-bottom: 0;">
+                    <button class="tab-link active" data-tab="availableTab">Available <span id="availableCount" class="tag bg-accent" style="margin-left: 0.25rem; font-size: 0.75rem; padding: 0.1rem 0.4rem; color: var(--primary);">0</span></button>
+                    <button class="tab-link" data-tab="activeTab">In Transit <span id="activeCount" class="tag bg-accent" style="margin-left: 0.25rem; font-size: 0.75rem; padding: 0.1rem 0.4rem; color: var(--primary);">0</span></button>
+                    <button class="tab-link" data-tab="completedTab">Completed</button>
+                </div>
+            </div>
+
+            <!-- Tab 1: Available Deliveries -->
+            <section id="availableTab" class="tab-content active">
+                <div id="availableDeliveriesList">
+                    <div class="delivery-card" style="text-align: center; padding: 3rem;">
+                        <p class="helper">Loading available deliveries…</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tab 2: In Transit Deliveries -->
+            <section id="activeTab" class="tab-content">
+                <div id="activeDeliveriesList">
+                    <div class="delivery-card" style="text-align: center; padding: 3rem;">
+                        <p class="helper">Loading active transit items…</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tab 3: Completed Deliveries -->
+            <section id="completedTab" class="tab-content">
+                <div id="completedDeliveriesList">
+                    <div class="delivery-card" style="text-align: center; padding: 3rem;">
+                        <p class="helper">Loading completed logs…</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Signature Confirmation Modal -->
+        <div id="signatureModal" class="modal-overlay">
+            <div class="modal-content" style="max-width: 480px;">
+                <div class="modal-header">
+                    <h3>Confirm Handover Delivery</h3>
+                    <button class="modal-close" id="closeSignatureModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Please request the customer, <strong><span id="sigCustomerName"></span></strong>, to sign below to verify receipt of <strong><span id="sigProductDetails"></span></strong>.</p>
+                    
+                    <div class="signature-container">
+                        <canvas id="signatureCanvas" width="400" height="200"></canvas>
+                    </div>
+                    
+                    <div class="signature-actions">
+                        <button class="btn btn-secondary btn-small" id="clearSignatureBtn" style="flex: 1;">Clear Drawing</button>
+                        <button class="btn btn-primary btn-small" id="submitDeliveryBtn" style="flex: 2;">Confirm handover & notify</button>
+                    </div>
+                    <p id="signatureMessage" class="helper" style="text-align: center; margin-top: 1rem; font-weight: 600;"></p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">© 2026 Everlasting Milk & Yoghurt. Logistics & Delivery Personnel portal.</div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
